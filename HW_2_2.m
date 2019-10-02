@@ -1,6 +1,6 @@
 n=2; %number of feature dimensions
 N=400; %number of iid samples
-mu1(:,1)=[0,0]; mu2(:,2)=[3;3];% mean for each class,[x-asix mean, y-axis mean]
+mu(:,1)=[0,0]; mu(:,2)=[3;3];% mean for each class,[x-asix mean, y-axis mean]
 Sigma(:,:,1)=eye(2); Sigma(:,:,2)=eye(2);%A 3-D array, for example, uses three subscripts. 
 %The first two are just like a matrix, but the third dimension represents pages or sheets of elements.
 p=[0.5,0.5]% class prioirs for labels 0 and 1 respectively
@@ -24,7 +24,7 @@ hold on
 plot(x(1,label==1),x(2,label==1),'+');
 hold off
 axis equal
-legned('Class 0','Class 1')
+legend('Class 0','Class 1')
 title('Data and their true labels')
 xlabel('x_1')
 ylabel('x_2')
