@@ -1,17 +1,19 @@
 n=2; %number of feature dimensions;
 N=400; %number of iid samples
-mu(:,1)=[0,0];
-mu(:,2)=[3;3]% mean for each class,[x-asix mean, y-axis mean
-Sigma(:,:,1)=eye(2)
-Sigma(:,:,2)=eye(2)%A 3-D array, for example, uses three subscripts. 
+mu(:,1)=input('please input the mean for class_1(mu(:,1))=');%[0,0]
+mu(:,2)=input('please input the mean for class_2(mu(:,2))=');%[3,3] 
+% mean for each class,[x-asix mean, y-axis mean
+Sigma(:,:,1)=input('please input the variance for class_1(Sigma(:,:,1))=');%eye(2)
+Sigma(:,:,2)=input('please input the variance for class_2(Sigma(:,:,2))=');%eye(2)
+%A 3-D array, for example, uses three subscripts. 
 %The first two are just like a matrix, but the third dimension represents pages or sheets of elements.
-p=[0.5,0.5]% class prioirs for labels 0 and 1 respectively
+p=input('please input the prior pobability for both cases[class_1,class_2]:');%[0.5,0.5]
+%class prioirs for labels 0 and 1 respectively
 label=rand(1,N)>=p(1); %obtain the bool value so that to choose each sample within which class
 %Uniformly distributed pseudorandom numbers.R = rand(N) returns an N-by-N matrix containing pseudorandom values drawn 
 %from the standard uniform distribution on the open interval(0,1).  
 Nc=[length(find(label==0)),length(find(label==1))];% number of samples from each class
 x=zeros(n,N);%save up space
-
 %draw samples from each class pdf
 for l=0:1
     x(:,label==l)=mvnrnd(mu(:,l+1),Sigma(:,:,l+1),Nc(l+1))';
@@ -41,17 +43,18 @@ decision=(discriminationScore>=log(gamma));
 %probability  of true negative:
 ind00=find(decision==0&label==0);p00=length(ind00)/Nc(1);
 %probability of false positive:
-ind10=find(decision==1&label==0);
-length(ind10)
-p10=length(ind10)/Nc(1)%number and probability of errors that decision==1 and label==0  
+ind10=find(decision==1&label==0);p10=length(ind10)/Nc(1);%number and probability of errors that decision==1 and label==0  
+fprintf('the number of errors in the case that decision=1 and label=0 are %d',length(ind10))
+fprintf('the probability of errors in the case that decision=1 and label=0 is %f',p10)
 %probability of false negative:
-ind01=find(decision==0&label==1);
-length(ind01)
-p01=length(ind01)/Nc(2)%number and probability of errors that decision==0 and label==1 
+ind01=find(decision==0&label==1);p01=length(ind01)/Nc(2);%number and probability of errors that decision==0 and label==1 
+fprintf('the number of errors in the case that decision=0 and label=1 are %d',length(ind01))
+fprintf('the probability of errors in the case that decision=0 and label=1 is %f',p01)
 %probability of true positive:
 ind11=find(decision==1&label==1);p11=length(ind11)/Nc(2);
-%p(error)=[p10 p01]*Nc'/N；p=(p10*Nc(1)+p01*Nc(2))/N;
-
+p_error=[p10 p01]*Nc'/N%p=(p10*Nc(1)+p01*Nc(2))/N;
+fprintf('the total number of errors are %d',length(ind01)+length(ind10))
+fprintf('the probability of errors is %f',p_error)
 figure(2)
 %class 0 circle,class 1 +,correct green,incorrect red
 plot(x(1,ind00),x(2,ind00),'og');%samples(x1,x2) that belong to label 0 , decision=0;
