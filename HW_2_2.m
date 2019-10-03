@@ -52,8 +52,8 @@ fprintf('the number of errors in the case that decision=0 and label=1 are %d',le
 fprintf('the probability of errors in the case that decision=0 and label=1 is %f',p01)
 %probability of true positive:
 ind11=find(decision==1&label==1);p11=length(ind11)/Nc(2);
-p_error=[p10 p01]*Nc'/N%p=(p10*Nc(1)+p01*Nc(2))/N;
-fprintf('the total number of errors are %d',length(ind01)+length(ind10))
+p_error=[p10 p01]*Nc'/N;%p=(p10*Nc(1)+p01*Nc(2))/N;
+fprintf('the total number of errors are %d,\n',length(ind01)+length(ind10))
 fprintf('the probability of errors is %f',p_error)
 figure(2)
 %class 0 circle,class 1 +,correct green,incorrect red
@@ -71,6 +71,11 @@ title('data along with their inferred(decision) labels')
 hold off
 axis equal
 
-    
-
+function g = evalGaussian(x,mu,Sigma)
+% Evaluates the Gaussian pdf N(mu,Sigma) at each coumn of X
+[n,N] = size(x);
+C = ((2*pi)^(-n/2) * det(Sigma))^(-1/2);
+E = -0.5*sum((x-repmat(mu,1,N)).*(inv(Sigma)*(x-repmat(mu,1,N))),1);
+g = C*exp(E);
+end
  
