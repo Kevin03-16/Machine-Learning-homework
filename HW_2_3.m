@@ -35,7 +35,7 @@ while s=='y'
     xlabel('x_1')
     ylabel('x_2')
 
-    %loss value(for MAP, choose 0-1 loss)
+    %loss value after LDA(for MAP, choose 0-1 loss)
     lambda=[0 1;1 0];
     %generate the function of threshold gamma based on risk function
     gamma=(lambda(2,1)-lambda(1,1))/(lambda(1,2)-lambda(2,2))*p(1)/p(2);
@@ -67,8 +67,6 @@ while s=='y'
     ylabel('x_2')
     title('data along with their inferred(decision) labels')
     axis equal
-    
-    
     %Draw the decision boundary
     %horizontalGrid = linspace(floor(min(x(1,:))),ceil(max(x(1,:))),101);
     %verticalGrid = linspace(floor(min(x(2,:))),ceil(max(x(2,:))),91);
@@ -103,12 +101,23 @@ while s=='y'
     legend('Class 0','Class 1'), 
     title('LDA projection of data and their true labels'),
     xlabel('x_1'), ylabel('x_2'), 
-    s=input('do you want to continue?:(y/n)','s');
-    %plot on a singal axis y=w'*X,circle means projection samples(label=0),x means projection samples(label=1)
     mu_0=mean(yLDA(label==0));%mean of samples in yLDA that belong to label==0 
     mu_1=mean(yLDA(label==1));%mean of samples in yLDA that belong to label==1
-    Var_1= var(yLDA(label==0));
-    Var_2=var(yLDA(label==1));
+    Var_0= var(yLDA(label==0));
+    Var_1=var(yLDA(label==1));
+    discriminationScore_LDA=log(evalGaussian(x,mu_1,Var_1))-log(evalGaussian(x,mu_0,Var_0));
+    decision_LDA=(discriminationScore_LDA>=log(gamma));
+    %probability  of true negative:
+    ind_LDA00=find(decision_LDA==0&label==0);p_LDA00=length(ind_LDA00)/Nc(1);
+    %probability of false positive:
+    ind_LDA10=find(decision_LDA==1&label==0);p_LDA10=length(ind_LDA10)/Nc(1);%number and probability of errors that decision==1 and label==0  
+    %probability of false negative:
+    ind_LDA01=find(decision_LDA==0&label==1);p_LDA01=length(ind_LDA01)/Nc(2);%number and probability of errors that decision==0 and label==1 
+    %probability of true positive:
+    ind_LDA11=find(decision_LDA==1&label==1);p_LDA11=length(ind_LDA11)/Nc(2);
+    p_error_LDA=[p_LDA10 p_LDA01]*Nc'/N;%p=(p10*Nc(1)+p01*Nc(2))/N;
+    fprintf('the total number of errors are %d,\n',length(ind_LDA01)+length(ind_LDA10))
+    fprintf('the probability of errors is %f,\n',p_error_LDA)
     s=input('do you want to continue?:(y/n)','s');
     end
 
