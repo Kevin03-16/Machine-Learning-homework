@@ -116,6 +116,8 @@ while s=='y'
     %probability of true positive:
     ind_LDA11=find(decision_LDA==1&label==1);p_LDA11=length(ind_LDA11)/Nc(2);
     p_error_LDA=[p_LDA10 p_LDA01]*Nc'/N;%p=(p10*Nc(1)+p01*Nc(2))/N;
+    fprintf('---------------------------------------------------------------------------\n')
+    fprintf('Applying the FisherLDA classifer with the decision threshold for the linear discriminant score set\n')
     fprintf('the total number of errors are %d,\n',length(ind_LDA01)+length(ind_LDA10))
     fprintf('the probability of errors is %f,\n',p_error_LDA)
     s=input('do you want to continue?:(y/n)','s');
