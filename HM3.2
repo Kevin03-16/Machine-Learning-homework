@@ -1,0 +1,57 @@
+clear all,close all
+
+qNegtive=0.3;
+qPositive=0.7;
+p=[qNegtive,qPositive];%class priors for label- and +
+n=2;
+N=999;
+mu(:,1)=[-4;2];
+mu(:,2)=[4;-2];
+Sigma(:,:,1)=[2 1;1 10];
+Sigma(:,:,2)=[12 1;1 2];
+label=rand(1,N)>=p(1);%label==1 is +
+%number of samples for each class
+Nc=[length(find(label==0)),length(find(label==1))];
+%generate dataset for each class
+for l=0:1
+    x(:,label==l)=mvnrnd(mu(:,l+1),Sigma(:,:,l+1),Nc(l+1))';
+%     R = mvnrnd(MU,SIGMA,N) returns a N-by-D matrix R of random vectors
+%     chosen from the multivariate normal distribution with 1-by-D mean
+%     vector MU, and D-by-D covariance matrix SIGMA.
+end
+plot(x(1,label==0),x(2,label==0),'bo'), hold on,
+plot(x(1,label==1),x(2,label==1),'r+'), axis equal,
+legend('Class -','Class +'), 
+%generate N samples from a Gaussian pdf with mean mu and covariance Sigma
+
+%Fisher LDA
+Sb=(mu(:,1)-mu(:,2))*(mu(:,1)-mu(:,2))';
+Sw=Sigma(:,:,1)+Sigma(:,:,2);
+[V,D]=eig(inv(Sw)*Sb)
+[~,ind]=sort(diag(D),'descend');
+w=V(:,ind(1))%fisher LDA projection vector
+y1=w'*x(:,label==0);%sample should be -
+y2=w'*x(:,label==1);%sample should be +
+n1=find(y1>=0);
+n2=find(y2<0);
+%choose b
+for i=1:length(n2)
+    Y1=y1+abs(y2(n2(i)));
+    Y2=y2+abs(y2(n2(i)));
+    s(i)=length(find(Y1>=0))+length(find(Y2<0));
+end
+[errorNum,ind]=min(s);
+b=abs(y2(n2(ind)));
+yTotal=w'*x+b;
+yNegative=yTotal(find(yTotal<0));
+yPositive=yTotal(find(yTotal>=0));
+figure(2)
+plot(yNegative,zeros(1,length(yNegative)),'bo'),hold on,
+plot(yPositive,zeros(1,length(yPositive)),'r+'), axis equal
+legend('class -','class +')
+
+%train the parameters of a logistic function
+LogisticFunc=1/(1+exp(yTotal));
+
+
+
