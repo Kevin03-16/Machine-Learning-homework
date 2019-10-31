@@ -1,4 +1,6 @@
-for i=1:4
+for i=1
+    delta = 1e-5; % tolerance for EM stopping criterion
+    regWeight = 1e-10; % regularization parameter for covariance estimates
     N=10^i;%generate samples 10,100,1000,10000
     K=10;%10-FOLDER
     
@@ -12,12 +14,56 @@ for i=1:4
     x=randGMM(N,alpha_true,mu_true,Sigma_true);
     [d,M]=size(mu_true)%determine dimensionality of samples and the number of GMM components
     
+ %Divide the data set into K approximately-equal-sized partitions
+    dummy = ceil(linspace(0,N,K+1));% generate k seperate datasets\ ceil Round towards plus infinity.
+    for k = 1:K
+        indPartitionLimits(k,:) = [dummy(k)+1,dummy(k+1)];
+    end
 
-    for k=1:K
-        for m=1:6
-            %generate the model based on the order m
-            randompoles=rand(1,m);%random poles;
-            a=poly(randompoles)
+    % Allocate space
+    MSEtrain = zeros(K,N); MSEvalidate = zeros(K,N); 
+    AverageMSEtrain = zeros(1,N); AverageMSEvalidate = zeros(1,N);
+    for C=1:6%#order
+        % Initialize the GMM to randomly selected samples
+        alpha = ones(1,C)/C;
+        shuffledIndices = randperm(N)
+        mu = x(:,shuffledIndices(1:C)) % pick c random samples as initial mean estimates in the originial dataset x
+        [~,assignedCentroidLabels] = min(pdist2(mu',x'),[],1); % assign each sample to the nearest mean
+     %[D,I] = pdist2(X,Y,DISTANCE,'Smallest',K) returns a K-by-MY matrix I
+    %containing indices of the observations in X corresponding to the K
+    %smallest pairwise distances in D. [D,I] = pdist2(X,Y,DISTANCE,
+    %'Largest',K) returns indices corresponding to the K largest pairwise distances.
+        for m = 1:C % use sample covariances of initial assignments as initial covariance estimates
+            Sigma(:,:,m) = cov(x(:,find(assignedCentroidLabels==m))') + regWeight*eye(d,d)
+        end
+         % K-fold cross validation
+         %Divide the data set into K approximately-equal-sized partitions
+
+                for k = 1:K
+                    indValidate = [indPartitionLimits(k,1):indPartitionLimits(k,2)];
+                    xValidate = x(indValidate); % Using folk k as validation set
+                    yValidate = y(indValidate);
+                    if k == 1
+                        indTrain = [indPartitionLimits(k,2)+1:N];
+                    elseif k == K
+                        indTrain = [1:indPartitionLimits(k,1)-1];
+                    else
+                        indTrain = [indPartitionLimits(k-1,2)+1:indPartitionLimits(k+1,1)-1];
+                    end
+                    xTrain = x(indTrain); % using all other folds as training set
+                    yTrain = y(indTrain);
+                    Ntrain = length(indTrain); Nvalidate = length(indValidate);
+                    % Train model parameters
+                    [wML,MSEtrain(k,M)] = fitPolynomial(M,xTrain, yTrain, Ntrain);
+                    PsiXvalidate = formPsiX(xValidate,M,Nvalidate);
+                    MSEvalidate(k,M) = calculateMSE(yValidate,wML,PsiXvalidate);
+                end
+                AverageMSEtrain(1,M) = mean(MSEtrain(:,M)); % average training MSE over folds
+                AverageMSEvalidate(1,M) = mean(MSEvalidate(:,M)); % average validation MSE over folds
+
+    end
+end
+
             
             
 
