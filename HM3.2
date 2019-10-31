@@ -1,4 +1,6 @@
+function main()
 clear all,close all
+clc
 
 qNegtive=0.3;
 qPositive=0.7;
@@ -11,7 +13,7 @@ Sigma(:,:,1)=[2 1;1 10];
 Sigma(:,:,2)=[12 1;1 2];
 label=rand(1,N)>=p(1);%label==1 is +
 %number of samples for each class
-Nc=[length(find(label==0)),length(find(label==1))];
+Nc=[length(find(label==0)),length(find(label==1))];%Nc(#-,#+)
 %generate dataset for each class
 for l=0:1
     x(:,label==l)=mvnrnd(mu(:,l+1),Sigma(:,:,l+1),Nc(l+1))';
@@ -19,19 +21,66 @@ for l=0:1
 %     chosen from the multivariate normal distribution with 1-by-D mean
 %     vector MU, and D-by-D covariance matrix SIGMA.
 end
+figure(1)
+subplot(1,2,1)
 plot(x(1,label==0),x(2,label==0),'bo'), hold on,
 plot(x(1,label==1),x(2,label==1),'r+'), axis equal,
 legend('Class -','Class +'), 
-%generate N samples from a Gaussian pdf with mean mu and covariance Sigma
+title('Data and their true labels')
+xlabel('x_1')
+ylabel('x_2')
+
+%MAP classifer
+%loss value after LDA(for MAP, choose 0-1 loss)
+lambda=[0 1;1 0];
+%generate the function of threshold gamma based on risk function
+gamma=(lambda(2,1)-lambda(1,1))/(lambda(1,2)-lambda(2,2))*p(1)/p(2);
+%take log on both side, which turns division to minus,p(x|w2)-p(x|w1):
+discriminationScore=log(evalGaussian(x,mu(:,2),Sigma(:,:,2)))-log(evalGaussian(x,mu(:,1),Sigma(:,:,1)));
+decision=(discriminationScore>=log(gamma));
+%probability  of true negative:
+indLDA00=find(decision==0&label==0);p00=length(indLDA00)/Nc(1);
+%probability of false positive:
+indLDA10=find(decision==1&label==0);p10=length(indLDA10)/Nc(1);%number and probability of errors that decision==+ and label==-  
+%probability of false negative:
+indLDA01=find(decision==0&label==1);p01=length(indLDA01)/Nc(2);%number and probability of errors that decision==- and label==+ 
+%probability of true positive:
+indLDA11=find(decision==1&label==1);p11=length(indLDA11)/Nc(2);
+p_error=[p10 p01]*Nc'/N;%p=(p10*Nc(1)+p01*Nc(2))/N;
+fprintf('the total number of errors are %d,\n',length(indLDA01)+length(indLDA10))
+figure(1)
+subplot(1,2,2)
+%class 0 circle,class 1 +,correct green,incorrect red
+plot(x(1,indLDA00),x(2,indLDA00),'og');%samples(x1,x2) that belong to label 0 , decision=0;
+hold on
+plot(x(1,indLDA10),x(2,indLDA10),'or')%samples(x1,x2) that belong to label 0, decision=1;
+hold on
+plot(x(1,indLDA01),x(2,indLDA01),'+r')%samples(x1,x2) that belong to label 1, desicion =0;
+hold on
+plot(x(1,indLDA11),x(2,indLDA11),'+g')%samples(x1,x2) that belong to label 1, desicion=1;
+legend('Label=- & Decision=-','Label=- & Decision=+','Label=+ & Decision=-','Label=+ & Decision=+')
+xlabel('x_1')
+ylabel('x_2')
+title('data along with their inferred(decision) labels')
+axis equal
+ 
 
 %Fisher LDA
 Sb=(mu(:,1)-mu(:,2))*(mu(:,1)-mu(:,2))';
 Sw=Sigma(:,:,1)+Sigma(:,:,2);
 [V,D]=eig(inv(Sw)*Sb)
 [~,ind]=sort(diag(D),'descend');
-w=V(:,ind(1))%fisher LDA projection vector
-y1=w'*x(:,label==0);%sample should be -
-y2=w'*x(:,label==1);%sample should be +
+wLDA=V(:,ind(1))%fisher LDA projection vector
+y1=wLDA'*x(:,label==0);%sample should be -
+y2=wLDA'*x(:,label==1);%sample should be +
+figure(2)
+subplot(1,2,1)
+plot(y1,zeros(1,Nc(1)),'bo'),hold on,
+plot(y2,zeros(1,Nc(2)),'r+'), axis equal
+legend('Class -','Class +')
+title('Data and their true labels')
+xlabel('x_1')
+ylabel('x_2')
 n1=find(y1>=0);
 n2=find(y2<0);
 %choose b
@@ -41,17 +90,88 @@ for i=1:length(n2)
     s(i)=length(find(Y1>=0))+length(find(Y2<0));
 end
 [errorNum,ind]=min(s);
-b=abs(y2(n2(ind)));
-yTotal=w'*x+b;
-yNegative=yTotal(find(yTotal<0));
-yPositive=yTotal(find(yTotal>=0));
+bLDA=abs(y2(n2(ind)));
+yTotal=wLDA'*x+bLDA;
+decision=yTotal>=0;
+indLDA00=find(decision==0&label==0);
+%probability of false positive:
+indLDA10=find(decision==1&label==0);%number and probability of errors that decision==+ and label==-  
+%probability of false negative:
+indLDA01=find(decision==0&label==1);%number and probability of errors that decision==- and label==+ 
+%probability of true positive:
+indLDA11=find(decision==1&label==1);
+fprintf('the total number of errors are %d,\n',length(indLDA01)+length(indLDA10))
+yNegTrue=wLDA'*x(:,indLDA00);
+yNegError=wLDA'*x(:,indLDA10);
+yPosTrue=wLDA'*x(:,indLDA11);
+yPosError=wLDA'*x(:,indLDA01);
 figure(2)
-plot(yNegative,zeros(1,length(yNegative)),'bo'),hold on,
-plot(yPositive,zeros(1,length(yPositive)),'r+'), axis equal
-legend('class -','class +')
+subplot(1,2,2)
+%class 0 circle,class 1 +,correct green,incorrect red
+plot(yNegTrue,zeros(1,length(indLDA00)),'og');%samples(x1,x2) that belong to label 0 , decision=0;
+hold on
+plot(yNegError,zeros(1,length(indLDA10)),'or')%samples(x1,x2) that belong to label 0, decision=1;
+hold on
+plot(yPosError,zeros(1,length(indLDA01)),'+r')%samples(x1,x2) that belong to label 1, desicion =0;
+hold on
+plot(yPosTrue,zeros(1,length(indLDA11)),'+g')%samples(x1,x2) that belong to label 1, desicion=1;
+legend('Label=- & Decision=-','Label=- & Decision=+','Label=+ & Decision=-','Label=+ & Decision=+')
+xlabel('x_1')
+ylabel('x_2')
+title('data along with their inferred(decision) labels')
+axis equal
 
-%train the parameters of a logistic function
-LogisticFunc=1/(1+exp(yTotal));
+%logistical-linear classifier
+% %train the parameters of a logistic function
+%optimize w and b starting from wLDA,bLDA
+theta0=[wLDA(1),wLDA(2),bLDA];
+theta=fminsearch(@EstimationFunc,theta0)
+wOptimized=[theta(1),theta(2)]
+bOptimized=theta(3)
+%assume 0-1 loss
+for i=1:N
+    value=theta(1)*x(1,i)+theta(2)*x(2,i)+theta(3);
+    yUpdated=1/(1+exp(value));
+end
+DecisionFunc=1./yUpdated-2;
+Decision=find(DecisionFunc<0);%DecisionFunc<0 choose +;
+indLLC00=find(decision==0&label==0);
+%probability of false positive:
+indLLC10=find(decision==1&label==0);%number and probability of errors that decision==+ and label==-  
+%probability of false negative:
+indLLC01=find(decision==0&label==1);%number and probability of errors that decision==- and label==+ 
+%probability of true positive:
+indLLC11=find(decision==1&label==1);
+fprintf('the total number of errors are %d,\n',length(indLDA01)+length(indLDA10))
+figure(3)
+subplot(1,2,1)
+plot(x(1,label==0),x(2,label==0),'bo'), hold on
+plot(x(1,label==1),x(2,label==1),'r+'), axis equal,
+legend('Class -','Class +'), 
+title('Data and their true labels')
+xlabel('x_1')
+ylabel('x_2')
+subplot(1,2,2)
+plot(x(1,indLLC00),x(2,indLLC00),'og');%samples(x1,x2) that belong to label 0 , decision=0;
+hold on
+plot(x(1,indLLC10),x(2,indLLC10),'or')%samples(x1,x2) that belong to label 0, decision=1;
+hold on
+plot(x(1,indLLC01),x(2,indLLC01),'+r')%samples(x1,x2) that belong to label 1, desicion =0;
+hold on
+plot(x(1,indLLC11),x(2,indLLC11),'+g')%samples(x1,x2) that belong to label 1, desicion=1;
+title('data along with their inferred(decision) labels')
+axis equal
+function f=EstimationFunc(theta)
+f=0;
+for i=1:N
+    EXP=exp(theta(1)*x(1,i)+theta(2)*x(2,i)+theta(3));
+    logFunc=(label(i)-1)*EXP+log(1+EXP);
+end
+f=sum(logFunc);
+end
+end
+
+
 
 
 
