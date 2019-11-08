@@ -1,0 +1,133 @@
+clear all,close all 
+clc
+
+pic=double(imread('picture1.jpg'));
+pic=pic/225;%divide by 255 so that all values are in the range of 0-1
+img_size=size(pic);%size of image
+% Reshape the image into an Nx3 matrix where N = number of pixels.
+% Each row will contain the Red, Green and Blue pixel values
+% This gives us our dataset matrix X that we will use K-Means on.
+Color = reshape(pic, img_size(1) * img_size(2), 3); 
+Xaxis=1:img_size(2);
+Yaxis=1:img_size(1);
+%Normailized featrue
+X(:,1)=1/img_size(2).*repmat(Xaxis',img_size(1),1);
+X(:,2)=1/img_size(1).*repmat(Yaxis',img_size(2),1);
+X(:,3:5)=Color;%5 feature{x,y,R,G,B}
+x=X';
+[d,N]=size(x);
+% Display the original image 
+figure(1)
+imagesc(pic); 
+title('Original');
+
+
+delta = 1e-5; % tolerance for EM stopping criterion
+regWeight = 1e-10; % regularization parameter for covariance estimates
+
+% Initialize the GMM to randomly selected samples
+for K=2:5
+    alpha = ones(1,K)/K;
+    shuffledIndices = randperm(N);
+    mu = x(:,shuffledIndices(1:K)); % pick K random samples as initial mean estimates mu is 5xK
+    [~,assignedCentroidLabels] = min(pdist2(mu',x'),[],1); % assign each sample to the nearest mean
+    for m = 1:K % use sample covariances of initial assignments as initial covariance estimates
+        Sigma(:,:,m) = cov(x(:,find(assignedCentroidLabels==m))') + regWeight*eye(d,d);
+    end
+    t=0;
+    Converged = 0; % Not converged at the beginning
+    while ~Converged
+        for l = 1:K
+            temp(l,:) = repmat(alpha(l),1,N).*evalGaussian(x,mu(:,l),Sigma(:,:,l));
+        end
+        plgivenx = temp./sum(temp,1);
+        alphaNew = mean(plgivenx,2);
+        w = plgivenx./repmat(sum(plgivenx,2),1,N);
+        muNew = x*w';
+        for l = 1:K
+            v = x-repmat(muNew(:,l),1,N);
+            u = repmat(w(l,:),d,1).*v;
+            SigmaNew(:,:,l) = u*v' + regWeight*eye(d,d); % adding a small regularization term
+        end
+        Dalpha = sum(abs(alphaNew-alpha));
+        Dmu = sum(sum(abs(muNew-mu)));
+        DSigma = sum(sum(abs(abs(SigmaNew-Sigma))));
+        Converged = ((Dalpha+Dmu+DSigma)<delta); % Check if converged
+        alpha = alphaNew; mu = muNew; Sigma = SigmaNew;
+        t=t+1;
+        if t>50
+            break
+        end
+    end
+    %MAP classification
+    Component=zeros(K,N);
+    for j=1:N
+        for i=1:K
+            Component(i,j)=alpha(i).*evalGaussian(x(:,j),mu(:,i),Sigma(:,:,i));
+        end
+        [~,indx]=max(Component(:,j),[],1);
+        label(j)=indx;
+    end
+    figure(2)
+    map=reshape(label,img_size(1),img_size(2));
+    subplot(2,2,K-1)
+    imagesc(map)
+    %recover the picture
+    X_recovered = mu(3:5,label)';
+
+    % Reshape the recovered image into proper dimensions
+    X_recovered = reshape(X_recovered, img_size(1), img_size(2), 3);
+
+    % Display compressed image side by side
+    figure(3)
+    subplot(2, 2, K-1);
+    imagesc(X_recovered)
+    title(sprintf('Compressed, with %d Means.', K));
+    
+end
+%%%
+function x = randGMM(N,alpha,mu,Sigma)
+d = size(mu,1); % dimensionality of samples
+cum_alpha = [0,cumsum(alpha)];
+u = rand(1,N); x = zeros(d,N); labels = zeros(1,N);
+for m = 1:length(alpha)
+    ind = find(cum_alpha(m)<u & u<=cum_alpha(m+1)); 
+    x(:,ind) = randGaussian(length(ind),mu(:,m),Sigma(:,:,m));
+end
+end
+
+%%%
+function x = randGaussian(N,mu,Sigma)
+% Generates N samples from a Gaussian pdf with mean mu covariance Sigma
+n = length(mu);
+z =  randn(n,N);
+A = Sigma^(1/2);
+x = A*z + repmat(mu,1,N);
+end
+
+%%%
+function [x1Grid,x2Grid,zGMM] = contourGMM(alpha,mu,Sigma,rangex1,rangex2)
+x1Grid = linspace(floor(rangex1(1)),ceil(rangex1(2)),101);
+x2Grid = linspace(floor(rangex2(1)),ceil(rangex2(2)),91);
+[h,v] = meshgrid(x1Grid,x2Grid);
+GMM = evalGMM([h(:)';v(:)'],alpha, mu, Sigma);
+zGMM = reshape(GMM,91,101);
+%figure(1), contour(horizontalGrid,verticalGrid,discriminantScoreGrid,[minDSGV*[0.9,0.6,0.3],0,[0.3,0.6,0.9]*maxDSGV]); % plot equilevel contours of the discriminant function 
+end
+%%%
+function gmm = evalGMM(x,alpha,mu,Sigma)
+gmm = zeros(1,size(x,2));
+for m = 1:length(alpha) % evaluate the GMM on the grid
+    gmm = gmm + alpha(m)*evalGaussian(x,mu(:,m),Sigma(:,:,m));
+end
+end
+
+%%%
+function g = evalGaussian(x,mu,Sigma)
+% Evaluates the Gaussian pdf N(mu,Sigma) at each coumn of X
+[n,N] = size(x);
+invSigma = inv(Sigma);
+C = (2*pi)^(-n/2) * det(invSigma)^(1/2);
+E = -0.5*sum((x-repmat(mu,1,N)).*(invSigma*(x-repmat(mu,1,N))),1);
+g = C*exp(E);
+end
