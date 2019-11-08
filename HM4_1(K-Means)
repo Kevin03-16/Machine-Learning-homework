@@ -1,0 +1,89 @@
+clear all,close all 
+clc
+
+pic=double(imread('picture1.jpg'));
+pic=pic/225;%divide by 255 so that all values are in the range of 0-1
+img_size=size(pic);%size of image
+% Reshape the image into an Nx3 matrix where N = number of pixels.
+% Each row will contain the Red, Green and Blue pixel values
+% This gives us our dataset matrix X that we will use K-Means on.
+Color = reshape(pic, img_size(1) * img_size(2), 3); 
+Xaxis=1:img_size(2);
+Yaxis=1:img_size(1);
+%Normailized featrue
+X(:,1)=1/img_size(2).*repmat(Xaxis',img_size(1),1);
+X(:,2)=1/img_size(1).*repmat(Yaxis',img_size(2),1);
+X(:,3:5)=Color;%5 feature{x,y,R,G,B}
+% Display the original image 
+figure(1)
+imagesc(pic); 
+title('Original');
+% Run your K-Means algorithm on this data
+for K=2:5
+    max_iters=10;
+    initial_centroids = InitialCentroids(X, K);
+    %run Kmeans
+    [centroids, idx] = Kmeans(X,initial_centroids, max_iters);
+    label=reshape(idx,img_size(1),img_size(2));
+    figure(2)
+    subplot(2,2,K-1)
+    imagesc(label)
+    title(sprintf('Colored label image, with %d Means', K))
+ 
+    % now recover the image from the indices (idx) by mapping each pixel
+    % (specified by it's index in idx) to the centroid value
+    idx = findClosestCentroids(X, centroids)
+    X_recovered = centroids(idx,3:5);
+
+    % Reshape the recovered image into proper dimensions
+    X_recovered = reshape(X_recovered, img_size(1), img_size(2), 3);
+
+    % Display compressed image side by side
+    figure(3)
+    subplot(2, 2, K-1);
+    imagesc(X_recovered)
+    title(sprintf('Compressed, with %d Means.', K));
+end
+
+function [centroids,idx] = Kmeans(X,initial_centroids,max_iters)
+[m,n]=size(X);
+%initialize values
+K = size(initial_centroids, 1);
+centroids=initial_centroids;
+idx=zeros(m,1);
+
+%Run Kmeans
+for i=1:max_iters
+    idx=findClosestCentroids(X,centroids);
+    centroids=UpdatingCentroids(X,idx,K);
+end
+
+end
+
+function centroids = InitialCentroids(X,K)
+% This function initializes K centroids that are to be used in K-Means on the dataset X
+centroids=zeros(K,size(X,2));
+% randomly chosen examples from the dataset X as intial centroids
+randidx=randperm(size(X,1));
+centroids=X(randidx(1:K),:);
+end
+
+function idx = findClosestCentroids(X, centroids)
+K=size(centroids,1);
+idx=zeros(size(X,1),1);
+for i=1:size(idx)
+    for j=1:K
+        d(j)=sum((X(i,:)-centroids(j,:)).^2);
+    end
+    [~,index]=min(d);
+    idx(i,1)=index;
+end
+end
+
+function centroids = UpdatingCentroids(X,idx,K)
+[m n] = size(X);
+centroids = zeros(K, n);
+for j=1:K
+    centroids(j,:)=sum(X(find(idx==j),:),1)./length(find(idx==j));
+end
+end
